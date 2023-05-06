@@ -8,13 +8,20 @@
 <body>
 	<h1>Hello world</h1>
 	<canvas id="canvas"></canvas>
-	<div class="jsmpeg" data-url="ws://localhost:9999" 
-	data-loop="true" data-autoplay="true"></div>
+	<!-- <div class="jsmpeg" data-url="ws://localhost:9999" 
+	data-loop="true" data-autoplay="true"></div> -->
 </body>
 <script type="text/javascript" src="jsmpeg.min.js"></script>
 <script type="text/javascript">
     // player = new JSMpeg.Player('ws://localhost:9999', {
     //   canvas: document.getElementById('canvas') // Canvas should be a canvas DOM element
     // })	
+</script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  socket.on('pose', function(msg) {
+    console.log(msg);
+  });
 </script>
 </html>
