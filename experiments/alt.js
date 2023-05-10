@@ -8,18 +8,38 @@ const server = require("http").createServer(app);
 const io = require('socket.io')(server);
 const poseDetection = require('@tensorflow-models/pose-detection');
 const MemoryStream = require('memorystream');
-const buffersize  = 460800;//921600;
+const width = 640;
+const height = 480;
+const buffersize  = height*width*3;
+let posemodel;
+const labels = [
+  'falling-forward-using-hands',
+  'jumping',
+  'laying',
+  'falling-forward-using-knees',
+  'falling-backwards',
+  'falling-sideways',
+  'falling-siting-in-empty-chair',
+  'walking',
+  'standing',
+  'siting',
+  'picking-up-an-object'
+];
+
 app.use(express.static('./'));
 async function loadModel() {
   // const modelUrl = 'http://localhost:3001/model.json';
   // const model = await tf.loadGraphModel(modelUrl);
+  posemodel = await tf.loadGraphModel('http://localhost:3001/tfjs/model.json');
   const model = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
         minPoseScore:0.1
         });
-  console.log("model Loaded");
+  console.log("models Loaded");
   return model;
 }
+
+
 const poseEstimation = async (model,rtspUrl,width,height) => {
 
   io.on('connect', (socket) => {
@@ -52,7 +72,27 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
           if(frameData.length == buffersize){
               const imageTensor = tf.tensor3d(frameData, [height, width, 3], 'int32');
               const predictions = await model.estimatePoses(imageTensor);
-                socket.emit('pose', [predictions[0],frameData]);
+              /** experimental section **/
+                if(predictions[0]){
+                  socket.emit('pose', [predictions[0],frameData]);
+                  let inputs = [];
+                    for (let i = 0; i < predictions[0].keypoints.length; i++) {
+                      let x = predictions[0].keypoints[i].x;
+                      let y = predictions[0].keypoints[i].y;
+                      let z = predictions[0].keypoints.name;
+                      inputs.push(x,y,z);
+                    }
+                    const inputTensor = tf.tensor3d(inputs, [1, 17, 3], 'float32');
+                    const flattenedInput = inputTensor.reshape([-1, 51]);
+                    const result = await posemodel.execute({ 'input_1': flattenedInput });
+                    const results = await result.array();
+                    const labelIndex = results[0].indexOf(Math.max(...results[0]));
+                    const predictedLabel = labels[labelIndex];
+                    console.log(predictedLabel);
+                    socket.emit('label',predictedLabel);
+                }
+                 /** experimental section ends **/
+                //here was emit
               }
             frameData = frameData.slice(buffersize)
         }
@@ -76,7 +116,7 @@ tf.setBackend('wasm').then(() => main());
 function main(){
 console.log('wasm loaded');
 loadModel().then((model) => {
-  poseEstimation(model,'rtsp://192.168.1.3:8080/h264_ulaw.sdp',480,320);
+  poseEstimation(model,'rtsp://192.168.143.116:8080/h264_ulaw.sdp',width,height);
 })
 }
 const port = 3001;
