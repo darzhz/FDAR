@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="style.css">
+	<title>Home</title>
+</head>
+<body>
+  <div id="activity" class="box">
+    <div class="frame">
+      <h3 class="label">
+        Activity
+      </h3>
+      <ul class="chart">
+        <li>
+          <span style="height:95%" title="fell forward using hands"></span>
+        </li>
+        <li>
+          <span style="height:85%" title="jumps"></span>
+        </li>
+        <li>
+          <span style="height:65%" title="laying"></span>
+        </li>
+        <li>
+          <span style="height:25%" title="fell forward using knees"></span>
+        </li>
+        <li>
+          <span style="height:65%" title="fell backwards"></span>
+        </li>
+        <li>
+          <span style="height:15%" title="fell sideways"></span>
+        </li>
+        <li>
+          <span style="height:5%" title="fell from chair"></span>
+        </li>
+        <li>
+          <span style="height:95%" title="walking"></span>
+        </li>
+        <li>
+          <span style="height:75%" title="standing"></span>
+        </li>
+        <li>
+          <span style="height:28%" title="siting"></span>
+        </li>
+        <li>
+          <span style="height:61%" title="picking up an object"></span>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <div id="stream" class="box">
+    <div class="frame" style="display: flex;">
+      <h3 class="label">
+        Live Stream
+      </h3>
+       <canvas id="canvas"></canvas>
+    </div>
+  </div>
+  <div id="timeline" class="box">
+    <div class="frame">
+      <h3 class="label">
+        Timeline
+      </h3>
+      <div id="dateSel">
+        <label for="date">Enter Date &nbsp</label>
+        <input type="date" id="date" name="date">
+        <label for="timestart">&nbsp Start time &nbsp</label>
+        <input type="time" id="timestart" name="timestart" required>
+        <label for="timeEnd">&nbsp End time &nbsp</label>
+        <input type="time" id="timeEnd" name="timeEnd" required>
+      </div>
+      <canvas id="timeChart"></canvas>
+    </div>
+  </div>
+</body>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+<script src="/script.js"></script>
+<script type="text/javascript">
+  const ctx = document.getElementById('timeChart');
+  ctx.height = window.innerHeight/2-50;
+  ctx.width = window.innerWidth-50;
+  const labels = [
+  'falling-forward-using-hands',
+  'jumping',
+  'laying',
+  'falling-forward-using-knees',
+  'falling-backwards',
+  'falling-sideways',
+  'falling-siting-in-empty-chair',
+  'walking',
+  'standing',
+  'siting',
+  'picking-up-an-object'
+];
+
+let chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        datasets: [{
+            data: [{
+                x: '2021-11-06 23:39:30',
+                y: 5
+            }, {
+                x: '2021-11-07 01:00:28',
+                y: 6
+            }, {
+                x: '2021-11-07 09:00:28',
+                y: 2
+            }],
+             backgroundColor: [
+      'rgb(255, 0, 0)'
+      ],borderColor: 'rgb(255, 25, 0)',
+    tension: 0.8
+        }]
+    },
+    options: {
+        scales: {
+            x: {
+                min: '2021-11-07 00:00:00',
+            }
+        },
+        responsive:false,
+        maintainAspectRatio:true
+    }
+});
+</script>
+</html>

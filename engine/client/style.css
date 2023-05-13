@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Bruno+Ace+SC&family=Poppins:wght@200&display=swap');
+:root{
+	font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+	--black:#000000eb;
+	--offblack:#0bdb97;
+	--acnt1:#2bffdad6;
+	}
+*,*::before,*::after{
+	box-sizing:border-box;
+}
+*,h1{
+	margin:0;
+	padding:0;
+	font:inherit;
+}
+body{
+	min-height:100dvh;
+	margin: 0;
+	padding: 0;
+	background-size: cover;
+	background-color: var(--offblack);
+	display: grid;
+	grid-template-areas:
+	"a b"
+	"a b"
+	"c c";
+	grid-auto-columns: 1fr;
+	gap:5px;
+}
+#activity {
+/*	background-color: #7fffd433;*/
+	min-width: 10px;
+	min-height: 10px;
+	grid-area: a;
+}
+#timeline {
+/*	background-color: #ed143d36;*/
+	grid-area: c;
+}
+#stream{
+/*	background-color: #fff8dc57;*/
+	grid-area: b;
+}
+.frame{
+	padding:15px;
+	min-height: 49dvh;
+	border-radius: 15px;
+	background-color: var(--black);
+}
+h3{
+	font-family: 'Bruno Ace SC', cursive;
+}
+canvas {
+	object-fit: cover;
+	margin-left:auto;
+	margin-right:auto;
+}
+.label{
+	color: whitesmoke;
+	font-weight: 500;
+	position: absolute;
+}
+.box{
+	border: none;
+	border-radius: 15px;
+}
+/* chart css */
+.chart {
+  display: table;
+  table-layout: fixed;
+  width: 90%;
+  max-width: 700px;
+  height: 200px;
+  margin: -4px auto;
+  border-radius: 15px;
+  background-size: 100% 50px;
+  background-position: left top;
+  padding-top:15px ;
+}
+.chart li {
+  position: relative;
+  display: table-cell;
+  vertical-align: bottom;
+  height: 200px;
+}
+.chart span {
+/*  margin: 0 1em;*/
+  display: block;
+  background: var(--acnt1);
+  color: var(--offblack);
+  font-family: 'Poppins', sans-serif;
+  animation: draw 1s ease-in-out;
+  width: 3vw;
+  margin: 0 auto;
+  border-radius: 15px;
+  transition: all 150ms ease-in-out;
+}
+.chart span:before {
+  	position: absolute;
+    top: 100%;
+    padding: 2px 1px 0;
+    max-width: 40px;
+    display: block;
+    text-align: center;
+    content: attr(title);
+    word-wrap: break-word;
+    color: inherit;
+    font-size: xx-small;
+}
+.chart span:hover{
+	background: #2bffda;
+	color: #2bffda;
+}
+input[type="date"]{
+    background-color: aquamarine;
+    font-family: 'Poppins', sans-serif;
+    border: none;
+    border-radius: 7px;
+    text-align: center;
+}
+input[type="time"]{
+    background-color: aquamarine;
+    font-family: 'Poppins', sans-serif;
+    border: none;
+    border-radius: 7px;
+    text-align: center;
+}
+label{
+  color:var(--offblack);
+  font-family: 'Poppins', sans-serif;
+}
+#dateSel{
+  display:flex;
+  justify-content:end;
+  align-items:center;
+}
+@keyframes draw {
+  0% {
+    height: 0;
+  }
+}
+/*end chart*/
+@media only screen and (max-width: 768px) {
+  /* For mobile phones: */
+  body {
+    grid-template-areas: "b b" "a a" "c c";
+
+  }
+}
