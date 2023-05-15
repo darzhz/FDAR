@@ -11,8 +11,11 @@
     "@tensorflow-models/pose-detection": "^2.1.0",
     "@tensorflow/tfjs": "^4.5.0",
     "@tensorflow/tfjs-backend-wasm": "^4.5.0",
+    "body-parser": "^1.20.2",
     "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
-    "socket.io": "^4.6.1"
+    "redis": "^4.6.6",
+    "socket.io": "^4.6.1",
+    "uuid": "^9.0.0"
   }
 }

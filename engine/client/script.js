@@ -56,3 +56,44 @@
     context.fillText("Check Connection", canvas.width/2-80, canvas.height-2);
   }
 }
+async function drawActivityBar(){
+  let et = Date.now();
+  let st = et - (60*60*100); //an Hour before in ms
+  let myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
+let urlencoded = new URLSearchParams();
+urlencoded.append("startTime",`${st}`);
+urlencoded.append("endTime",`${et}`);
+let requestOptions = {
+  method: 'POST',
+  headers: myHeaders,
+  body: urlencoded,
+  redirect: 'follow'
+};
+let resp =  await fetch('/timeline', requestOptions);
+    resp.json().then((res)=>{
+        let labels = buildHisto(res);
+        console.log(labels)
+        let span = Object.keys(labels);
+        span.forEach((key)=>{
+          //reset height for(let i= 0;i<a.length;i++){a[i].style.height = "0%"}
+          let doc = document.querySelector('[title='+key+']');
+          doc.style.height = `${labels[key]}%`;
+        });
+    });
+
+}
+function buildHisto(data){
+  let labels = {};
+  let vals = [];
+  for(let i = 0;i<data.length;i++){
+      labels[data[i]] = labels[data[i]] != undefined?parseInt(labels[data[i]])+1:1;
+  }
+  Object.values(labels).forEach((elem)=>{vals.push(Math.round(elem/data.length*100))})
+  let keys = Object.keys(labels)
+  for(let i = 0;i<vals.length;i++){
+    labels[keys[i]] = vals[i];
+  }
+  return labels;
+}
+

@@ -7,7 +7,10 @@ const app = express();
 const server = require("http").createServer(app);
 const io = require('socket.io')(server);
 const poseDetection = require('@tensorflow-models/pose-detection');
-const MemoryStream = require('memorystream');
+const redis = require('redis');
+var bodyParser = require('body-parser')
+const client = redis.createClient();
+const { v4: uuidv4 } = require('uuid')
 const width = 320;
 const height = 240;
 const buffersize  = height*width*3;
@@ -26,7 +29,17 @@ const labels = [
   'picking-up-an-object'
 ];
 
-app.use(express.static('./'));
+app.use(express.static('./client'));
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.json())
+app.post('/timeline',async (req,res) => {
+  debugger;
+   let data = req.body;
+   console.log(data);
+   let poses = await getData(data.startTime,data.endTime);
+   console.log(poses);
+   res.send(await JSON.stringify(poses));
+});
 async function loadModel() {
   // const modelUrl = 'http://localhost:3001/model.json';
   // const model = await tf.loadGraphModel(modelUrl);
@@ -96,6 +109,7 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
                     imageTensor.dispose();
                     console.log(tf.memory());
                     socket.emit('label',predictedLabel);
+                    setData(predictedLabel);
                 }
                  /** experimental section ends **/
                 //here was emit
@@ -122,10 +136,54 @@ tf.setBackend('wasm').then(() => main());
 function main(){
 console.log('wasm loaded');
 loadModel().then((model) => {
-  poseEstimation(model,'rtsp://192.168.1.3:8080/h264_ulaw.sdp',width,height);
+  poseEstimation(model,'rtsp://192.168.1.4:8080/h264_ulaw.sdp',width,height);
 })
 }
 const port = 3001;
   server.listen(port, () => {
     console.log(`Listening on http://localhost:${port}`);
-  });
+});
+
+// connect database
+async function initializeDb(){
+  client.on('error', err => console.log('Redis Client Error', err));
+  await client.connect();
+  console.log('db connected');
+}
+async function setData(poseData){
+ const timestamp = Date.now();
+ const uuid = uuidv4();
+ const data = JSON.stringify(poseData);
+if(poseData && timestamp){
+client.zAdd('poses', {score:timestamp,value:uuid}).then(async (ok, err) => {
+  if (err) {
+    console.error(err);
+  } else {
+    const poseDataKey = `pose:${uuid}`;
+    await client.SET(poseDataKey, data);
+    console.log(`Pose data stored in Redis with timestamp ${String(timestamp)}`);
+  }
+});
+}
+}
+async function getData(startTime,endTime){
+return client.sendCommand(['ZRANGEBYSCORE','poses', startTime, endTime]).then(async (uuids, err) => {
+  if (err) {
+    console.error(err);
+  } else {
+    const poseDataKeys = await uuids.map(uuid => `pose:${uuid}`);
+    console.log(poseDataKeys);
+    if(poseDataKeys.length > 1){
+    return client.sendCommand(['MGET',...poseDataKeys]).then(async (poseDataList,err) => {
+      if (err) {
+        console.error(err);
+      } else {
+        const poses = poseDataList.map(poseDataStr => JSON.parse(poseDataStr));
+        return poses
+      }
+    });
+    }
+  }
+});
+}
+initializeDb();
