@@ -33,13 +33,26 @@ app.use(express.static('./client'));
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 app.post('/timeline',async (req,res) => {
-  debugger;
    let data = req.body;
    console.log(data);
    let poses = await getData(data.startTime,data.endTime);
    console.log(poses);
    res.send(await JSON.stringify(poses));
 });
+app.post('/test',async (req,res) => {
+   let data = req.body;
+   console.log(data);
+   //let poses = await getData(data.startTime,data.endTime);
+   let time = data.endTime - data.startTime;
+   let poses = [];
+   for(let i = 0;i < time;i++){
+    let randomNumber  = Math.floor(Math.random() * 10)%11;
+    poses[i] = labels[randomNumber];
+   }
+   console.log('generated poses' +poses.length);
+   res.send(await JSON.stringify(poses));
+});
+
 async function loadModel() {
   // const modelUrl = 'http://localhost:3001/model.json';
   // const model = await tf.loadGraphModel(modelUrl);
