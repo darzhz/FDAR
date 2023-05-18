@@ -38,6 +38,7 @@
 
     //let frame = new VideoFrame(msg);
   });
+  socket.on('disconnect',drawNoSignal());
   socket.on('label',(data)=>{
       context.font = "50px Arial";
       context.fillText(data, 10, 50);
@@ -61,28 +62,63 @@ async function drawActivityBar(){
   let st = et - (60*60*100); //an Hour before in ms
   let myHeaders = new Headers();
   myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
-let urlencoded = new URLSearchParams();
-urlencoded.append("startTime",`${st}`);
-urlencoded.append("endTime",`${et}`);
-let requestOptions = {
-  method: 'POST',
-  headers: myHeaders,
-  body: urlencoded,
-  redirect: 'follow'
-};
-let resp =  await fetch('/timeline', requestOptions);
-    resp.json().then((res)=>{
-        let labels = buildHisto(res);
-        console.log(labels)
-        let span = Object.keys(labels);
-        span.forEach((key)=>{
-          //reset height for(let i= 0;i<a.length;i++){a[i].style.height = "0%"}
-          let doc = document.querySelector('[title='+key+']');
-          doc.style.height = `${labels[key]}%`;
-        });
+  let urlencoded = new URLSearchParams();
+  urlencoded.append("startTime",`${st}`);
+  urlencoded.append("endTime",`${et}`);
+  let requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: urlencoded,
+    redirect: 'follow'
+  };
+  let resp =  await fetch('/timeline', requestOptions);
+      resp.json().then((res)=>{
+          let labels = buildHisto(res);
+          console.log(labels)
+          let span = Object.keys(labels);
+          span.forEach((key)=>{
+            //reset height for(let i= 0;i<a.length;i++){a[i].style.height = "0%"}
+            let doc = document.querySelector('[title='+key+']');
+            doc.style.height = `${labels[key]}%`;
+          });
     });
 
 }
+async function drawTimeLine(){
+  let date = document.getElementById('date').value;
+  let timeStart = document.getElementById('timeStart').value;
+  let timeEnd = document.getElementById('timeEnd').value;
+  let et = Math.round(new Date(date+" "+timeEnd).getTime()/1000);
+  let st = Math.round(new Date(date+" "+timeStart).getTime()/1000);
+  if(date&&timeStart&&timeEnd){
+    let myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
+    let urlencoded = new URLSearchParams();
+    urlencoded.append("startTime",`${st}`);
+    urlencoded.append("endTime",`${et}`);
+    let requestOptions = {
+      method: 'POST',
+      headers: myHeaders,
+      body: urlencoded,
+      redirect: 'follow'
+    };
+    let resp =  await fetch('/test', requestOptions);
+        resp.json().then(async (res)=>{
+           /** we have a ton of labels in res i want to convert it into an array of object
+               like [{x:timestamp,y:label},.....] **/
+               let timeStep = await (res.length/(et-st))*1000;
+               let timeFrame = st;
+               console.log(timeStep,res.length,timeFrame);
+               let data = [];
+               for(let i = 0;i<=res.length;i++){
+                 data.push({x:new Date(timeFrame).toISOString().slice(11, 19),y:res[i]});
+                 timeFrame = timeFrame+timeStep;
+               }
+               console.log(data);
+               drawTimelineChart(data);
+               });
+   }
+ }
 function buildHisto(data){
   let labels = {};
   let vals = [];

@@ -19,7 +19,8 @@
 }
 body{
 	min-height:100dvh;
-	margin: 0;
+	margin: 10px;
+	overflow-y:hidden;
 	padding: 0;
 	background-size: cover;
 	background-color: var(--offblack);

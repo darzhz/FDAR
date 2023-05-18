@@ -66,9 +66,9 @@
         <label for="date">Enter Date &nbsp</label>
         <input type="date" id="date" name="date">
         <label for="timestart">&nbsp Start time &nbsp</label>
-        <input type="time" id="timestart" name="timestart" required>
+        <input type="time" id="timeStart" name="timestart" required>
         <label for="timeEnd">&nbsp End time &nbsp</label>
-        <input type="time" id="timeEnd" name="timeEnd" required>
+        <input type="time" id="timeEnd" name="timeEnd" onchange="drawTimeLine()" required>
       </div>
       <canvas id="timeChart"></canvas>
     </div>
@@ -78,6 +78,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
 <script src="/script.js"></script>
 <script type="text/javascript">
+let chart;
+function drawTimelineChart(dataTL){
   const ctx = document.getElementById('timeChart');
   ctx.height = window.innerHeight/2-50;
   ctx.width = window.innerWidth-50;
@@ -94,36 +96,60 @@
   'siting',
   'picking-up-an-object'
 ];
-
-let chart = new Chart(ctx, {
+chart = chart?chart.destroy():null;
+chart = new Chart(ctx, {
     type: 'line',
     data: {
+        labels:labels,
         datasets: [{
-            data: [{
-                x: '2021-11-06 23:39:30',
-                y: 5
-            }, {
-                x: '2021-11-07 01:00:28',
-                y: 6
-            }, {
-                x: '2021-11-07 09:00:28',
-                y: 2
-            }],
+             label: 'Activity',
+            data: dataTL,
              backgroundColor: [
       'rgb(255, 0, 0)'
       ],borderColor: 'rgb(255, 25, 0)',
-    tension: 0.8
+    tension: 0.5
         }]
     },
     options: {
         scales: {
             x: {
-                min: '2021-11-07 00:00:00',
-            }
+                min: dataTL[0].x,
+                ticks: {
+                  color: '#2bffdad6',
+                  beginAtZero: true,
+                  align:'center',
+                  font:{
+                    size:11,
+                    align:'center',
+                    family:"'Poppins', sans-serif",
+                  }
+                 },
+                 grid: {
+                    color: 'grey'
+                  }
+            },
+            y: {
+                type: 'category',
+                labels: labels,
+                ticks: {
+                  color: '#2bffdad6',
+                  beginAtZero: true,
+                  align:'center',
+                  font:{
+                    size:11,
+                    align:'center',
+                    family:"'Poppins', sans-serif",
+                  }
+                 },
+                 grid: {
+                    color: 'grey'
+                  }
+            },
         },
         responsive:false,
         maintainAspectRatio:true
     }
 });
+}
 </script>
 </html>
