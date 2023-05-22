@@ -122,7 +122,7 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
                     imageTensor.dispose();
                     console.log(tf.memory());
                     socket.emit('label',predictedLabel);
-                    setData(predictedLabel);
+                    setData(predictedLabel);//setting label to redis
                 }
                  /** experimental section ends **/
                 //here was emit
@@ -149,7 +149,7 @@ tf.setBackend('wasm').then(() => main());
 function main(){
 console.log('wasm loaded');
 loadModel().then((model) => {
-  poseEstimation(model,'rtsp://192.168.1.4:8080/h264_ulaw.sdp',width,height);
+  poseEstimation(model,'rtsp://192.168.1.2:8080/h264_ulaw.sdp',width,height);
 })
 }
 const port = 3001;
@@ -166,7 +166,7 @@ async function initializeDb(){
 async function setData(poseData){
  const timestamp = Date.now();
  const uuid = uuidv4();
- const data = JSON.stringify(poseData);
+ const data = JSON.stringify({pose:poseData,time:timestamp});
 if(poseData && timestamp){
 client.zAdd('poses', {score:timestamp,value:uuid}).then(async (ok, err) => {
   if (err) {
@@ -199,4 +199,66 @@ return client.sendCommand(['ZRANGEBYSCORE','poses', startTime, endTime]).then(as
   }
 });
 }
+
+const sqlite3 = require('sqlite3').verbose();
+const sqliteFile = 'backup.db';
+const backupInterval = 60 * 60 * 1000;
+function createTable() {
+  // Execute the query to create a table
+  const db = new sqlite3.Database(sqliteFile);
+  const query = `CREATE TABLE IF NOT EXISTS redis_backup (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key INTEGER,
+    value TEXT
+  )`;
+
+  db.run(query, err => {
+    if (err) {
+      console.error('Error creating table in SQLite:', err);
+    } else {
+      console.log('Table created in SQLite');
+    }
+
+    // Close the database connection
+    db.close();
+  });
+}
+
+// Call the function to create a table
+createTable();
+async function backupRedisToSQLite() {
+    const db = new sqlite3.Database(sqliteFile);
+    let pose  = await getData('-inf','+inf');
+    // Start SQLite transaction
+      debugger;
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
+
+      // Iterate over Redis keys
+      pose.forEach(key => {
+        debugger;
+        console.log(key);
+
+          // Insert key-value pair into SQLite
+          db.run('INSERT INTO redis_backup (key, value) VALUES (?, ?)', [JSON.stringify(key.pose), JSON.stringify(key.time)], err => {
+            if (err) {
+              console.error(`Error inserting key "${key}" into SQLite:`, err);
+            }
+          });
+      });
+
+      // Commit SQLite transaction
+      db.run('COMMIT', err => {
+        if (err) {
+          console.error('Error committing SQLite transaction:', err);
+        }
+         client.sendCommand(['flushall']);
+         db.close();
+      });
+    });
+}
+
+// Schedule periodic backup
+//setInterval(backupRedisToSQLite, backupInterval);
 initializeDb();
+
