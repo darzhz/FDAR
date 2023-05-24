@@ -8,6 +8,9 @@ const server = require("http").createServer(app);
 const io = require('socket.io')(server);
 const poseDetection = require('@tensorflow-models/pose-detection');
 const redis = require('redis');
+const { Telegraf } = require("telegraf");
+//curl https://api.telegram.org/bot<YourBOTToken>/getUpdates
+const  tele = new Telegraf(process.env.TBOT);
 var bodyParser = require('body-parser')
 const client = redis.createClient();
 const { v4: uuidv4 } = require('uuid')
@@ -28,7 +31,7 @@ const labels = [
   'siting',
   'picking-up-an-object'
 ];
-
+let hasStarted = false;
 app.use(express.static('./client'));
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
@@ -36,8 +39,19 @@ app.post('/timeline',async (req,res) => {
    let data = req.body;
    console.log(data);
    let poses = await getData(data.startTime,data.endTime);
-   console.log(poses);
-   res.send(await JSON.stringify(poses));
+   if(poses){
+   console.log(poses.filter(n => n));
+   res.send(await JSON.stringify(poses.filter(n => n)));
+  }else{
+    poses = await getDataFromSqlite(data.startTime,data.endTime);
+    res.send(await JSON.stringify(poses.filter(n => n)));
+  }
+});
+app.post('/backup',async (req,res) => {
+   backupRedisToSQLite();  
+   let data = req.body;
+   let poses = await getDataFromSqlite(data.startTime,data.endTime);
+   res.send(await JSON.stringify("backed up "+poses.length+" items"));
 });
 app.post('/test',async (req,res) => {
    let data = req.body;
@@ -59,7 +73,7 @@ async function loadModel() {
   posemodel = await tf.loadGraphModel('http://localhost:3001/tfjs/model.json');
   const model = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-        minPoseScore:0.1
+        minPoseScore:0.3
         });
   console.log("models Loaded");
   return model;
@@ -70,6 +84,12 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
 
   io.on('connect', (socket) => {
     console.log(`Client ${socket.id} connected`);
+
+     socket.on('disconnect', () => {
+      console.log(`Client ${socket.id} disconnected`);
+      //outputStream.kill();
+    });
+  });
 
     const outputStream = ffmpeg(rtspUrl)
   .inputOptions(['-rtsp_transport','tcp'])
@@ -89,6 +109,8 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
     // Set up the output stream to pipe its data to the pose estimation function
     let frameData = Buffer.alloc(0);
     outputStream.on('data', async (data) => {
+      if(!hasStarted)
+        outputStream.kill('SIGSTOP');
       if (frameData === null) { // Check if frameData is null before concatenating it with data
       frameData = Buffer.alloc(0);
       }
@@ -100,7 +122,8 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
               const predictions = await model.estimatePoses(imageTensor);
               /** experimental section **/
                 if(predictions[0]){
-                  socket.emit('pose', [predictions[0],frameData]);
+                  console.log(predictions[0].score);
+                  io.emit('pose', [predictions[0],frameData]);
                   let inputs = [];
                     for (let i = 0; i < predictions[0].keypoints.length; i++) {
                       let x = predictions[0].keypoints[i].x;
@@ -112,17 +135,33 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
                     const flattenedInput = inputTensor.reshape([-1, 51]);
                     const result = await posemodel.execute({ 'input_1': flattenedInput });
                     const results = await result.array();
-                    const labelIndex = results[0].indexOf(Math.max(...results[0]));
+                    const min = Math.min(...results[0]);
+                    const max = Math.max(...results[0]);
+                    const normalizedResults = results[0].map((value) => {
+                      // Perform normalization on each value
+                      const normalizedValue = (value - min) / (max - min);
+                      return normalizedValue;
+                    });
+                    //debugger;
+                    const score = Math.max(...normalizedResults)
+                    const labelIndex = normalizedResults.indexOf(score);
                     const predictedLabel = labels[labelIndex];
-                    console.log(predictedLabel);
+                    console.log(predictedLabel+" with score "+Math.floor(score*100)+"%");
                     //disposesing all the tensors
                     inputTensor.dispose();
                     flattenedInput.dispose();
                     result.dispose();
                     imageTensor.dispose();
                     console.log(tf.memory());
-                    socket.emit('label',predictedLabel);
+                    io.emit('label',predictedLabel);
                     setData(predictedLabel);//setting label to redis
+                    if(predictedLabel == labels[0] || predictedLabel == labels[3] || predictedLabel == labels[4] || predictedLabel == labels[5] || predictedLabel == labels[6]){
+                       try{
+                       await notifyTele('detected abnormal activity :'+predictedLabel+" with score "+Math.floor(score*100)+"%");
+                       }catch(err){
+                       console.error(err);
+                       }
+                    }
                 }
                  /** experimental section ends **/
                 //here was emit
@@ -138,14 +177,28 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
     });
 
     // Set up the Socket.IO connection to listen for a "disconnect" event from the client
-    socket.on('disconnect', () => {
-      console.log(`Client ${socket.id} disconnected`);
-      //outputStream.kill();
-    });
-  });
+   
+    //here was the end of connect
 };
+
+
+
 //poseEstimation('rtsp://192.168.1.5:8080/h264_ulaw.sdp')
-tf.setBackend('wasm').then(() => main());
+//tf.setBackend('wasm').then(() => main());
+tele.command('startdetection', async (ctx) => {
+  console.log("start Detection invoked remotely");
+  if(!hasStarted){
+    //start
+    hasStarted = !hasStarted;
+    tf.setBackend('wasm').then(() => main());
+  }else{
+    notifyTele('process already started');
+  }
+});
+tele.command('enddetection', async (ctx) => {
+  hasStarted = !hasStarted;
+  notifyTele('process stopped');
+});
 function main(){
 console.log('wasm loaded');
 loadModel().then((model) => {
@@ -208,8 +261,8 @@ function createTable() {
   const db = new sqlite3.Database(sqliteFile);
   const query = `CREATE TABLE IF NOT EXISTS redis_backup (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key INTEGER,
-    value TEXT
+    pose TEXT,
+    time INTEGER
   )`;
 
   db.run(query, err => {
@@ -230,21 +283,21 @@ async function backupRedisToSQLite() {
     const db = new sqlite3.Database(sqliteFile);
     let pose  = await getData('-inf','+inf');
     // Start SQLite transaction
-      debugger;
+    if(pose != null){
     db.serialize(() => {
       db.run('BEGIN TRANSACTION');
-
+      console.log(pose);
       // Iterate over Redis keys
       pose.forEach(key => {
         debugger;
-        console.log(key);
-
-          // Insert key-value pair into SQLite
-          db.run('INSERT INTO redis_backup (key, value) VALUES (?, ?)', [JSON.stringify(key.pose), JSON.stringify(key.time)], err => {
+        if(key != null){
+          console.log(key);
+          db.run('INSERT INTO redis_backup (pose, time) VALUES (?, ?)', [JSON.stringify(key.pose), JSON.stringify(key.time)], err => {
             if (err) {
               console.error(`Error inserting key "${key}" into SQLite:`, err);
             }
           });
+        }
       });
 
       // Commit SQLite transaction
@@ -256,9 +309,43 @@ async function backupRedisToSQLite() {
          db.close();
       });
     });
+  }else{
+    console.log("no data in redis");
+    db.close();
+  }
+}
+async function getDataFromSqlite(startTime, endTime) {
+return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(sqliteFile);
+    const query = `SELECT * FROM redis_backup WHERE time BETWEEN ? AND ?`;
+    db.all(query, [startTime, endTime], (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        // Close the database connection
+        db.close(err => {
+          if (err) {
+            console.error('Error closing SQLite database connection:', err);
+          }
+          resolve(rows);
+        });
+      }
+    });
+  });
 }
 
 // Schedule periodic backup
-//setInterval(backupRedisToSQLite, backupInterval);
+setInterval(backupRedisToSQLite, backupInterval);
 initializeDb();
 
+
+//notify
+async function notifyTele(message){
+  await tele.telegram.sendMessage(
+    process.env.TUSER,message
+  );
+}
+notifyTele('server started');
+tele.startPolling();
+process.once('SIGINT', () => tele.stop('SIGINT'));
+process.once('SIGTERM', () => tele.stop('SIGTERM'));

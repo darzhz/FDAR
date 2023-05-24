@@ -59,7 +59,7 @@
 }
 async function drawActivityBar(){
   let et = Date.now();
-  let st = et - (60*60*100); //an Hour before in ms
+  let st = et - (604800000); //an Hour before in ms
   let myHeaders = new Headers();
   myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
   let urlencoded = new URLSearchParams();
@@ -72,8 +72,9 @@ async function drawActivityBar(){
     redirect: 'follow'
   };
   let resp =  await fetch('/timeline', requestOptions);
-      resp.json().then((res)=>{
-          let labels = buildHisto(res);
+      debugger;
+      resp.json().then(async (res)=>{
+          let labels = await buildHisto(res);
           console.log(labels)
           let span = Object.keys(labels);
           span.forEach((key)=>{
@@ -88,8 +89,8 @@ async function drawTimeLine(){
   let date = document.getElementById('date').value;
   let timeStart = document.getElementById('timeStart').value;
   let timeEnd = document.getElementById('timeEnd').value;
-  let et = Math.round(new Date(date+" "+timeEnd).getTime()/1000);
-  let st = Math.round(new Date(date+" "+timeStart).getTime()/1000);
+  let et = Math.round(new Date(date+" "+timeEnd).getTime());
+  let st = Math.round(new Date(date+" "+timeStart).getTime());
   if(date&&timeStart&&timeEnd){
     let myHeaders = new Headers();
     myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
@@ -102,28 +103,37 @@ async function drawTimeLine(){
       body: urlencoded,
       redirect: 'follow'
     };
-    let resp =  await fetch('/test', requestOptions);
+    let resp =  await fetch('/timeline', requestOptions);
         resp.json().then(async (res)=>{
            /** we have a ton of labels in res i want to convert it into an array of object
                like [{x:timestamp,y:label},.....] **/
-               let timeStep = await (res.length/(et-st))*1000;
-               let timeFrame = st;
-               console.log(timeStep,res.length,timeFrame);
+              console.log(res);
+               // let timeStep = await (res.length/(et-st))*1000;
+               // let timeFrame = st;
+               // console.log(timeStep,res.length,timeFrame);
                let data = [];
-               for(let i = 0;i<=res.length;i++){
-                 data.push({x:new Date(timeFrame).toISOString().slice(11, 19),y:res[i]});
-                 timeFrame = timeFrame+timeStep;
+               for(let i = 0;i<res.length;i++){
+                  debugger;
+                 let time = res[i]["time"];
+                 let pose = res[i]["pose"];
+                 data.push({x:new Date(time).toISOString().slice(11, 19),y:pose});
                }
-               console.log(data);
-               drawTimelineChart(data);
+               // console.log(data);
+               drawTimelineChart(removeDuplicates(data));
                });
    }
  }
+ function removeDuplicates(arr) {
+    return arr.filter((item,
+        index) => arr.indexOf(item) === index);
+}
 function buildHisto(data){
   let labels = {};
   let vals = [];
   for(let i = 0;i<data.length;i++){
-      labels[data[i]] = labels[data[i]] != undefined?parseInt(labels[data[i]])+1:1;
+      if(data[i]==null)
+          continue;
+      labels[data[i]["pose"]] = labels[data[i]["pose"]] != undefined?parseInt(labels[data[i]["pose"]])+1:1;
   }
   Object.values(labels).forEach((elem)=>{vals.push(Math.round(elem/data.length*100))})
   let keys = Object.keys(labels)
