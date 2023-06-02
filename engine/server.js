@@ -9,6 +9,7 @@ const io = require('socket.io')(server);
 const poseDetection = require('@tensorflow-models/pose-detection');
 const redis = require('redis');
 const { Telegraf } = require("telegraf");
+require('dotenv').config()
 //curl https://api.telegram.org/bot<YourBOTToken>/getUpdates
 const  tele = new Telegraf(process.env.TBOT);
 var bodyParser = require('body-parser')
@@ -73,24 +74,27 @@ async function loadModel() {
   posemodel = await tf.loadGraphModel('http://localhost:3001/tfjs/model.json');
   const model = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-        minPoseScore:0.3
+        minPoseScore:0.2
         });
   console.log("models Loaded");
   return model;
 }
-
-
-const poseEstimation = async (model,rtspUrl,width,height) => {
-
   io.on('connect', (socket) => {
     console.log(`Client ${socket.id} connected`);
+    // if(!hasStarted){
+    //   tf.setBackend('wasm').then(() => main());
+    //   hasStarted = true;
+    //   }
 
      socket.on('disconnect', () => {
       console.log(`Client ${socket.id} disconnected`);
+
       //outputStream.kill();
     });
   });
 
+const poseEstimation = async (model,rtspUrl,width,height) => {
+  
     const outputStream = ffmpeg(rtspUrl)
   .inputOptions(['-rtsp_transport','tcp'])
   .on('start', (data) => {
@@ -111,6 +115,11 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
     outputStream.on('data', async (data) => {
       if(!hasStarted)
         outputStream.kill('SIGSTOP');
+      if (isProcessing) {
+        // Skip frames while processing is in progress
+        console.log('frame skipped');
+        return;
+      }
       if (frameData === null) { // Check if frameData is null before concatenating it with data
       frameData = Buffer.alloc(0);
       }
@@ -154,6 +163,7 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
                     imageTensor.dispose();
                     console.log(tf.memory());
                     io.emit('label',predictedLabel);
+                    isProcessing = false;
                     setData(predictedLabel);//setting label to redis
                     if(predictedLabel == labels[0] || predictedLabel == labels[3] || predictedLabel == labels[4] || predictedLabel == labels[5] || predictedLabel == labels[6]){
                        try{
@@ -202,7 +212,7 @@ tele.command('enddetection', async (ctx) => {
 function main(){
 console.log('wasm loaded');
 loadModel().then((model) => {
-  poseEstimation(model,'rtsp://192.168.1.2:8080/h264_ulaw.sdp',width,height);
+  poseEstimation(model,process.env.STREAM,width,height);
 })
 }
 const port = 3001;
