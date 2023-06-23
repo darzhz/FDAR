@@ -74,7 +74,7 @@ async function loadModel() {
   posemodel = await tf.loadGraphModel('http://localhost:3001/tfjs/model.json');
   const model = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-        minPoseScore:0.2
+        minPoseScore:0.4
         });
   console.log("models Loaded");
   return model;
@@ -114,12 +114,7 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
     let frameData = Buffer.alloc(0);
     outputStream.on('data', async (data) => {
       if(!hasStarted)
-        outputStream.kill('SIGSTOP');
-      if (isProcessing) {
-        // Skip frames while processing is in progress
-        console.log('frame skipped');
-        return;
-      }
+        outputStream.kill('SIGSTOP')
       if (frameData === null) { // Check if frameData is null before concatenating it with data
       frameData = Buffer.alloc(0);
       }
@@ -163,7 +158,6 @@ const poseEstimation = async (model,rtspUrl,width,height) => {
                     imageTensor.dispose();
                     console.log(tf.memory());
                     io.emit('label',predictedLabel);
-                    isProcessing = false;
                     setData(predictedLabel);//setting label to redis
                     if(predictedLabel == labels[0] || predictedLabel == labels[3] || predictedLabel == labels[4] || predictedLabel == labels[5] || predictedLabel == labels[6]){
                        try{
