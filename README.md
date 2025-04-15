@@ -1,6 +1,6 @@
 # Fall Detection System
 
-A real-time fall detection system using computer vision and machine learning to monitor, detect, and alert caregivers about potential fall incidents.
+A real-time fall detection system using computer vision and machine learning to monitor, detect, and alert caregivers about potential fall incidents that can be easily retrofitted to any existing surveillance CCTV Camera Supporting RTSP Streaming protocol.
 
 ## Overview
 
